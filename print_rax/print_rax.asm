@@ -2,7 +2,7 @@ global _start
 
 section .data
 
-	codes: db '0123456789ABCDEF'  	    ; Caracteres ASCII utilizados para representação
+	codes: db '0123456789ABCDEF'        ; Caracteres ASCII utilizados para representação
                                             ; dos números em formato hexadecimal.
                                 
   	EOL: db 10                          ; Caractere especial '\n' (End of Line).
