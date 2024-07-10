@@ -11,7 +11,7 @@ section .text
 
 	_start:
 	
-		mov rax, 0x1122334455667788 ; Número em formato hexadecimal.
+		mov rax, 0x8899AABBCCDDEEFF ; Número em formato hexadecimal.
 		
 		; Configurando argumentos para a syscall: write
 		
