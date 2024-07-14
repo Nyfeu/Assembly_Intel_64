@@ -20,7 +20,7 @@ section .text
     call print_hex
     call print_newline
 
-    call _exit                 ; Finaliza a execução do programa
+    jmp _exit                  ; Finaliza a execução do programa
 
   print_newline:               ; Função para escreve nova linha
 
