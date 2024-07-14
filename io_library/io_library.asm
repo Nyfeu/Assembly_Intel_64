@@ -4,7 +4,8 @@ section .data
 
   string_demo: db "Hello, World!", 0
 
-  new_line: db 10 
+  new_line: db 10
+  negative_sign: db '-'
 
 section .text
 
@@ -18,6 +19,14 @@ section .text
     call print_uint
     call print_newline
 
+    mov rdi, 0x8000000000000000   ; Carrega com o valor máximo neg de int
+    call print_int
+    call print_newline
+
+    mov rdi, 0x7fffffffffffffff   ; Carrega com o valor máximo positivo de int
+    call print_int
+    call print_newline
+
     mov rdi, string_demo          ; Conta os caracteres de string_demo
     call string_length
 
@@ -25,39 +34,102 @@ section .text
     call exit
   
   string_length:                  ; Aceita arg: buffer string (rdi)
+   
+    ; Guardando os valores dos registradores
+
+    push rax
+    push rdi
     
+    ; Zerando o valor do contador (rax)
+
     xor rax, rax
 
     .iterate:
-
+      
       cmp byte[rdi + rax], 0
       je .end
       inc rax
       jmp .iterate
 
     .end:
+      
+      ; Recuperando os valores dos registradores
+
+      pop rdi
+      pop rax
+
+      ; Retornando para o endereço na STACK
 
       ret
 
   print_char:                     ; Recebe como arg: buffer char (rdi)
 
+    ; Guardando os valores dos registradores
+
+    push rax
+    push rsi
+    push rdx
+    push rcx
+    push rdi
+
+    ; Executando a chamada de sistema
+
     mov rsi, rdi
     mov rax, 1
     mov rdi, 1
     mov rdx, 1
-    syscall
+    syscall                       ; Syscall: write
+
+    ; Recuperando os valores dos registradores
+
+    pop rdi
+    pop rcx
+    pop rdx
+    pop rsi
+    pop rax
+
+    ; Retornando para o endereço na STACK  
+
     ret
 
   print_newline:                  ; Escreve o char: '\n'
                                   ; Não aceita argumentos
+
+    ; Guardando os valores dos registradores
+
+    push rax
+    push rsi
+    push rdx
+    push rcx
+
+    ; Executando a chamada de sistema
+
     mov rax, 1
     mov rdi, 1
     mov rsi, new_line
     mov rdx, 1
-    syscall
+    syscall                       ; Syscall: write
+
+    ; Recuperando os valores dos registradores
+
+    pop rcx
+    pop rdx
+    pop rsi
+    pop rax
+
+    ; Retornando para o endereço na STACK  
+
     ret
 
   print_string:
+
+    ; Guardando os valores dos registradores
+
+    push rax
+    push rcx
+    push rdi
+
+    ; Iniciando o procedimento
     
     mov rax, rdi                  ; Passa o arg para rax (buffer string)
     xor rcx, rcx                  ; Zera o registrador rcx
@@ -69,32 +141,38 @@ section .text
 
       lea rsi, [rax + rcx]
 
-      push rcx
-      push rax
-
       mov rdi, rsi
       call print_char
-      
-      pop rax
-      pop rcx
 
       inc rcx                     ; Caso contrário, incrementa rcx
       jmp .iterate                ; e começa a próxima iteração
 
     .end:
 
+      ; Recuperando os valores dos registradores
+
+      pop rdi
+      pop rcx
+      pop rax
+
+      ; Retornando para o endereço na STACK
+
       ret
 
   print_uint:                     ; Recebe arg: rdi (inteiro 64 bits)
 
-    mov rax, rdi                  ; Guarda arg em rax
-
     ; Salva os valores dos registradores
 
+    push rax
     push rbx
     push rcx
     push rdx
     push rsi
+    push rdi
+
+    ; Guarda arg em rax (rdi)
+
+    mov rax, rdi
     
     ; Alocando espaço na pilha (STACK)
 
@@ -134,16 +212,61 @@ section .text
       ; Desalocando o buffer da pilha (STACK)
 
       add rsp, 21
-      
+     
+    .end:
+
       ; Recuperando valores iniciais dos registradores
 
-      pop rbx
-      pop rcx
-      pop rdx
+      pop rdi
       pop rsi
+      pop rdx
+      pop rcx
+      pop rbx
+      pop rax
+
+      ; Retornando para o endereço na STACK
 
       ret
 
+  print_int:                      ; Recebe arg: rdi (inteiro 64 bits) 
+
+    ; Salva os valores dos registradores
+
+    push rax
+    push rdi
+
+    ; Guarda arg em rax
+
+    mov rax, rdi                  
+    
+    ; Verifica se o número é negativo
+
+    test rax, rax
+    jns .positive
+    
+    .negative:
+
+      neg rax                     ; Aplicando 2's complement
+
+      mov rdi, negative_sign
+      call print_char
+
+    .positive:
+      
+      mov rdi, rax
+      call print_uint
+
+    .end:
+
+      ; Recuperando valores iniciais dos registradores
+
+      pop rdi
+      pop rax
+
+      ; Retornando para o endereço na STACK
+
+      ret
+    
   exit:                           ; Aceita um exit_code (rdi)
 
     mov rax, 60
