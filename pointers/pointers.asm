@@ -54,8 +54,8 @@ section .text
 
 		mov word[test], 1
 		mov rdi, [test]
-    call print_hex
-    call print_newline
+    		call print_hex
+    		call print_newline
 
 		mov dword[test], 1
 		mov rdi, [test]
