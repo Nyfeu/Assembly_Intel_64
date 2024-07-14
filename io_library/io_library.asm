@@ -101,6 +101,7 @@ section .text
     push rsi
     push rdx
     push rcx
+    push rdi
 
     ; Executando a chamada de sistema
 
@@ -112,6 +113,7 @@ section .text
 
     ; Recuperando os valores dos registradores
 
+    pop rdi
     pop rcx
     pop rdx
     pop rsi
@@ -167,7 +169,6 @@ section .text
     push rbx
     push rcx
     push rdx
-    push rsi
     push rdi
 
     ; Guarda arg em rax (rdi)
@@ -218,7 +219,6 @@ section .text
       ; Recuperando valores iniciais dos registradores
 
       pop rdi
-      pop rsi
       pop rdx
       pop rcx
       pop rbx
