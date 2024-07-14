@@ -1,5 +1,9 @@
 global _start
 
+section .bss
+
+  in_buffer: resb 128             ; Reserva 128 bytes para o buffer de entrada
+
 section .data
 
   string_demo: db "Hello, World!", 0
@@ -27,14 +31,51 @@ section .text
     call print_int
     call print_newline
 
+    mov rdi, in_buffer            ; Passa como arg o buffer de entrada 1 byte
+    call read_char
+    call print_char
+    call print_newline
+
+    call read_char                ; Para limpar o buffer de entrada (ENTER)
+
     mov rdi, string_demo          ; Conta os caracteres de string_demo
     call string_length
 
     mov rdi, rax                  ; Passa o resultado como exit_code
     call exit
   
+  read_char:                      ; Recebe arg: buffer char (rdi)
+    
+    ; Guardando os valores dos registradores
+
+    push rax
+    push rdx
+    push rdi
+    push rsi
+    push rcx
+
+    ; Executando a chamada de sistema
+
+    mov rsi, rdi
+    mov rax, 0
+    mov rdi, 0
+    mov rdx, 1
+    syscall                       ; Executa syscall: read
+
+    ; Recuperando os valores dos registradores
+
+    pop rcx
+    pop rsi
+    pop rdi
+    pop rdx
+    pop rax
+
+    ; Retornando para o endereço salvo na STACK
+    
+    ret
+
   string_length:                  ; Aceita arg: buffer string (rdi)
-   
+     
     ; Guardando os valores dos registradores
 
     push rax
@@ -52,7 +93,7 @@ section .text
       jmp .iterate
 
     .end:
-      
+       
       ; Recuperando os valores dos registradores
 
       pop rdi
