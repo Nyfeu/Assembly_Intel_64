@@ -2,7 +2,8 @@ global _start
 
 section .bss
 
-  in_buffer: resb 21              ; Reserva 21 bytes para o buffer de entrada
+  in_buffer_1: resb 20              ; Reserva 20 bytes para o buffer de entrada 1
+  in_buffer_2: resb 20              ; Reserva 20 bytes para o buffer de entrada 2
 
 section .data
 
@@ -35,18 +36,25 @@ section .text
     mov rdi, string_demo          ; Conta os caracteres de string_demo
     call string_length
 
-    mov rdi, in_buffer
-    mov rsi, 21                   ; Tamanho do buffer: 10 bytes (chars)
+    mov rdi, in_buffer_1
+    mov rsi, 20                   ; Tamanho do buffer: 20 bytes (chars)
     call read_word
+
+    call print_string
+    call print_newline
+
+    mov rdi, in_buffer_2
+    mov rsi, 20
+    call read_word
+
+    call print_string
+    call print_newline
     
-    mov rdi, in_buffer
-    call parse_int                ; Parse unsigned integer
+    mov rdi, in_buffer_1
+    mov rsi, in_buffer_2
+    call string_equals
 
-    mov rdi, rax
-    call print_int                ; Imprime o valor do parse
-    call print_newline            
-
-    mov rdi, rdx                  ; Passa o resultado como exit_code
+    mov rdi, rax                  ; Passa o resultado como exit_code
     call exit
   
   read_char:                      ; Recebe arg: buffer char (rdi)
@@ -345,6 +353,43 @@ section .text
       ; Retornando para o endereço na STACK
 
       ret
+
+  string_equals:                  ; Arg1: buffer1 (rdi)
+                                  ; Arg2: buffer2 (rsi)
+    push rcx
+    push rbx
+
+    xor rcx, rcx
+
+    .iterate:
+      
+      mov al, byte[rdi + rcx]
+      mov bl, byte[rsi + rcx]
+
+      cmp al, bl                  ; Compara os caracteres
+      jne .not_eq
+      
+      cmp al, 0
+      je .eq
+      
+      inc rcx
+      jmp .iterate
+
+    .eq:
+
+      mov rax, 1
+      jmp .end
+
+    .not_eq:
+      
+      xor rax, rax
+
+    .end:
+      
+      pop rbx
+      pop rcx
+      
+      ret    
 
   print_uint:                     ; Recebe arg: rdi (inteiro 64 bits)
 
