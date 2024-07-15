@@ -2,7 +2,7 @@ global _start
 
 section .bss
 
-  in_buffer: resb 10              ; Reserva 10 bytes para o buffer de entrada
+  in_buffer: resb 21              ; Reserva 21 bytes para o buffer de entrada
 
 section .data
 
@@ -32,23 +32,24 @@ section .text
     call print_int
     call print_newline
 
-    mov rdi, in_buffer            ; Passa como arg o buffer de entrada 1 byte
-    call read_char
-    call print_char
-    call print_newline
-
-    call read_char                ; Para limpar o buffer de entrada (ENTER)
-
     mov rdi, string_demo          ; Conta os caracteres de string_demo
     call string_length
 
     mov rdi, in_buffer
-    mov rsi, 10                   ; Tamanho do buffer: 10 bytes (chars)
+    mov rsi, 21                   ; Tamanho do buffer: 10 bytes (chars)
     call read_word
-    call print_string
+    
+    mov rdi, in_buffer
+    call parse_uint               ; Parse unsigned integer
+
+    mov rdi, rax
+    call print_uint               ; Imprime o valor do parse
+    call print_newline            
+
+    call print_int
     call print_newline
 
-    mov rdi, rax                  ; Passa o resultado como exit_code
+    mov rdi, 0                    ; Passa o resultado como exit_code
     call exit
   
   read_char:                      ; Recebe arg: buffer char (rdi)
@@ -140,6 +141,63 @@ section .text
       pop rbx
       pop rsi
       pop rdi
+
+      ret
+
+  parse_uint:                     ; Recebe addr do buffer para a string (rdi)
+    
+    ; Salvar os valores dos registradores
+
+    push rbx
+    push rcx
+    push rdx
+    
+    ; Inicializar rax e rdx
+
+    xor rax, rax                ; rax = 0 (resultado final)
+    xor rdx, rdx                ; rdx = 0 (contador de caracteres)
+    xor rcx, rcx                ; rcx = 0 (caractere lido)
+    
+    .iterate:
+      
+      mov cl, byte [rdi + rdx]  ; Carregar caractere atual
+      cmp cl, byte [null_char]  ; Verificar se é o caractere nulo ('\0')
+      je .end                   ; Se for, terminar o parsing
+      cmp cl, '0'               ; Verificar se é menor que '0'
+      jl .end                   ; Se menor, finalizar
+      cmp cl, '9'               ; Verificar se é maior que '9'
+      jg .end                   ; Se maior, finalizar
+      
+      ; Caso seja um dígito válido, proceder com a conversão:
+
+      sub cl, '0'               ; Converter char para dígito (0-9)
+      
+      ; Multiplicar rax por 10
+
+      mov rbx, 10               ; rbx = 10
+      imul rax, rbx             ; rax = rax * 10
+      
+      ; Adicionar o novo dígito
+
+      add rax, rcx              ; rax = rax + cl
+      
+      ; Incrementar o contador de caracteres
+
+      inc rdx
+
+      ; Repetir
+
+      jmp .iterate
+      
+    .end:
+      
+      ; Restaurar os valores dos registradores
+
+      pop rdx
+      pop rcx
+      pop rbx
+      
+      ; Retornar para o endereço salvo
 
       ret
 
@@ -333,6 +391,10 @@ section .text
       pop rcx
       pop rbx
       pop rax
+      ;pop rbx
+      ;pop rcx
+      ;pop rdx
+      ;pop rdi
 
       ; Retornando para o endereço na STACK
 
