@@ -40,16 +40,13 @@ section .text
     call read_word
     
     mov rdi, in_buffer
-    call parse_uint               ; Parse unsigned integer
+    call parse_int                ; Parse unsigned integer
 
     mov rdi, rax
-    call print_uint               ; Imprime o valor do parse
+    call print_int                ; Imprime o valor do parse
     call print_newline            
 
-    call print_int
-    call print_newline
-
-    mov rdi, 0                    ; Passa o resultado como exit_code
+    mov rdi, rdx                  ; Passa o resultado como exit_code
     call exit
   
   read_char:                      ; Recebe arg: buffer char (rdi)
@@ -150,7 +147,6 @@ section .text
 
     push rbx
     push rcx
-    push rdx
     
     ; Inicializar rax e rdx
 
@@ -193,11 +189,32 @@ section .text
       
       ; Restaurar os valores dos registradores
 
-      pop rdx
       pop rcx
       pop rbx
       
       ; Retornar para o endereço salvo
+
+      ret
+
+  parse_int:                      ; Recebe addr do buffer para a string (rdi)
+    
+    mov cl, byte [rdi]            ; Carrega o primeiro caractere
+    cmp cl, '-'                   ; Verificar se é o caractere nulo ('-')
+    je .negative
+
+    .positive:
+
+      call parse_uint
+      jmp .end
+
+    .negative:
+
+      lea rdi, [rdi + 1]
+      call parse_uint
+      neg rax
+      inc rdx
+
+    .end:
 
       ret
 
@@ -391,10 +408,6 @@ section .text
       pop rcx
       pop rbx
       pop rax
-      ;pop rbx
-      ;pop rcx
-      ;pop rdx
-      ;pop rdi
 
       ; Retornando para o endereço na STACK
 
