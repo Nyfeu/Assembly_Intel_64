@@ -2,15 +2,16 @@ global _start
 
 section .bss
 
-  in_buffer: resb 128             ; Reserva 128 bytes para o buffer de entrada
+  in_buffer: resb 10              ; Reserva 10 bytes para o buffer de entrada
 
 section .data
 
   string_demo: db "Hello, World!", 0
 
   new_line: db 10
+  null_char: db 0
   negative_sign: db '-'
-
+  
 section .text
 
   _start:                         ; Código executado para testes
@@ -41,6 +42,12 @@ section .text
     mov rdi, string_demo          ; Conta os caracteres de string_demo
     call string_length
 
+    mov rdi, in_buffer
+    mov rsi, 10                   ; Tamanho do buffer: 10 bytes (chars)
+    call read_word
+    call print_string
+    call print_newline
+
     mov rdi, rax                  ; Passa o resultado como exit_code
     call exit
   
@@ -48,7 +55,6 @@ section .text
     
     ; Guardando os valores dos registradores
 
-    push rax
     push rdx
     push rdi
     push rsi
@@ -62,17 +68,80 @@ section .text
     mov rdx, 1
     syscall                       ; Executa syscall: read
 
-    ; Recuperando os valores dos registradores
+    ; Verificando o final de stream de dados
 
-    pop rcx
-    pop rsi
-    pop rdi
-    pop rdx
-    pop rax
+    xor rax, rax
+    cmp byte[rsi], 10
+    je .end
 
-    ; Retornando para o endereço salvo na STACK
+    mov rax, 1
+
+    .end:
+      
+      ; Recuperando os valores dos registradores
+      
+      pop rcx
+      pop rsi
+      pop rdi
+      pop rdx
+      
+      ; Retornando para o endereço salvo na STACK
+      
+      ret
+
+  read_word:                    ; Arg1: buffer (rdi)
+                                ; Arg2: total_size (rsi) 
+    push rdi
+    push rsi
+    push rbx
     
-    ret
+    xor rbx, rbx 
+
+    .iterate:
+
+      push rdi
+      lea rdi, [rdi + rbx]
+      call read_char
+      pop rdi
+      test rax, rax
+      jz .end_of_stream
+      cmp rbx, rsi
+      je .end_of_buffer
+      inc rbx
+      jmp .iterate
+
+    .end_of_stream:
+      
+      mov rax, 1
+      jmp .end
+
+    .end_of_buffer:
+
+      xor rax, rax
+
+    .cleanup_stdin:
+
+      ; Continuar lendo até encontrar um '\n' para limpar o buffer de stdin
+      
+      push rdi
+      lea rdi, [rdi + rbx]
+      call read_char
+      pop rdi
+
+      test rax, rax
+      jz .end
+      cmp al, 10
+      jne .cleanup_stdin
+
+    .end:
+
+      mov byte[rdi + rbx], 0
+
+      pop rbx
+      pop rsi
+      pop rdi
+
+      ret
 
   string_length:                  ; Aceita arg: buffer string (rdi)
      
