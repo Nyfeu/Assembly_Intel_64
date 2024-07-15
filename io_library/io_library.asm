@@ -3,7 +3,7 @@ global _start
 section .bss
 
   in_buffer: resb 20              ; Reserva 20 bytes para o buffer de entrada
-  out_buffer: resb 20             ; Reserva 20 bytes para o buffer de saída 
+  out_buffer: resb 15             ; Reserva 15 bytes para o buffer de saída 
 
 section .data
 
@@ -28,7 +28,7 @@ section .text
 
     mov rdi, in_buffer
     mov rsi, out_buffer
-    mov rdx, 20
+    mov rdx, 15
     call string_copy
 
     test rax, rax
