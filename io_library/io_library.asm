@@ -2,12 +2,14 @@ global _start
 
 section .bss
 
-  in_buffer_1: resb 20              ; Reserva 20 bytes para o buffer de entrada 1
-  in_buffer_2: resb 20              ; Reserva 20 bytes para o buffer de entrada 2
+  in_buffer: resb 20              ; Reserva 20 bytes para o buffer de entrada
+  out_buffer: resb 20             ; Reserva 20 bytes para o buffer de saída 
 
 section .data
 
-  string_demo: db "Hello, World!", 0
+  str_read:   db "Digite a string a ser copiada: ", 0
+  str_error:  db "Não foi possível alocar a string no destino!", 0
+  str_result: db "A string copiada foi: ", 0
 
   new_line: db 10
   null_char: db 0
@@ -17,45 +19,42 @@ section .text
 
   _start:                         ; Código executado para testes
     
-    mov rdi, string_demo
+    mov rdi, str_read
     call print_string
-    call print_newline
-
-    mov rdi, 0xffffffffffffffff   ; Carrega com o valor máximo de uint
-    call print_uint
-    call print_newline
-
-    mov rdi, 0x8000000000000000   ; Carrega com o valor máximo neg de int
-    call print_int
-    call print_newline
-
-    mov rdi, 0x7fffffffffffffff   ; Carrega com o valor máximo positivo de int
-    call print_int
-    call print_newline
-
-    mov rdi, string_demo          ; Conta os caracteres de string_demo
-    call string_length
-
-    mov rdi, in_buffer_1
+    
+    mov rdi, in_buffer
     mov rsi, 20                   ; Tamanho do buffer: 20 bytes (chars)
     call read_word
 
-    call print_string
-    call print_newline
+    mov rdi, in_buffer
+    mov rsi, out_buffer
+    mov rdx, 20
+    call string_copy
 
-    mov rdi, in_buffer_2
-    mov rsi, 20
-    call read_word
+    test rax, rax
+    jnz .print_result
+    jmp .print_error
 
-    call print_string
-    call print_newline
-    
-    mov rdi, in_buffer_1
-    mov rsi, in_buffer_2
-    call string_equals
+    .print_result:
 
-    mov rdi, rax                  ; Passa o resultado como exit_code
-    call exit
+      mov rdi, str_result
+      call print_string
+
+      mov rdi, rax
+      call print_string
+      call print_newline 
+      jmp .end
+
+    .print_error:
+
+      mov rdi, str_error
+      call print_string
+      call print_newline
+
+    .end:
+      
+      mov rdi, 0                    ; Passa o resultado como exit_code
+      call exit
   
   read_char:                      ; Recebe arg: buffer char (rdi)
     
@@ -389,7 +388,45 @@ section .text
       pop rbx
       pop rcx
       
-      ret    
+      ret   
+
+  string_copy:                    ; Arg1: string (rdi) addr
+                                  ; Arg2: buffer (rsi) addr
+                                  ; Arg3: tamanho do buffer (rdx)
+    push rbx
+    
+    xor rax, rax
+    xor rbx, rbx   
+
+
+    .loop:
+      
+      mov al, byte[rdi + rbx]
+      mov byte[rsi + rbx], al
+      
+      cmp al, 0
+      je .success
+      
+      inc rbx
+      
+      cmp rbx, rdx
+      jge .overflow
+      jmp .loop
+
+    .overflow:
+      
+      xor rax, rax
+      jmp .end
+    
+    .success:
+      
+      mov rax, rsi
+
+    .end:
+      
+      pop rbx
+      
+      ret
 
   print_uint:                     ; Recebe arg: rdi (inteiro 64 bits)
 
