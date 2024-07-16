@@ -41,7 +41,6 @@ section .data                     ; Dados inicializados utilizados no código
   str_result: db "A string copiada foi: ", 0
 
   new_line: db 10
-  null_char: db 0
   negative_sign: db '-'
 
 ; -------------------------------------------------------------------------------------------------
@@ -238,7 +237,7 @@ section .text
     .iterate:
 
       mov cl, byte [rdi + rdx]    ; Carregar caractere atual
-      cmp cl, byte [null_char]    ; Verificar se é o caractere nulo ('\0')
+      cmp cl, 0                   ; Verificar se é o caractere nulo ('\0')
       je .end                     ; Se for, terminar o parsing
       cmp cl, '0'                 ; Verificar se é menor que '0'
       jl .end                     ; Se menor, finalizar
@@ -381,14 +380,8 @@ section .text
     ;
     ;  > Não recebe nem emite nenhuma entrada ou saída
     ;
-
-    ; Guardando os valores dos registradores
-
-    push rax
-    push rsi
-    push rdx
-    push rcx
-    push rdi
+    ;  > Registradores utilizados: rax, rsi, rdx, rcx e rdi
+    ;
 
     ; Executando a chamada de sistema
 
@@ -397,14 +390,6 @@ section .text
     mov rsi, new_line
     mov rdx, 1
     syscall                       ; Syscall: write
-
-    ; Recuperando os valores dos registradores
-
-    pop rdi
-    pop rcx
-    pop rdx
-    pop rsi
-    pop rax
 
     ; Retornando para o endereço na STACK
 
