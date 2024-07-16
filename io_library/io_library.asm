@@ -9,6 +9,19 @@
 ;  > Date: 15/07/2024
 ;
 ; -------------------------------------------------------------------------------------------------
+;
+;  > Convenção para chamadas utilizada (x86_64 System V Application Binary Interface):
+;
+;      +--------------+-------------------------------------------+
+;      | Caller-saved | rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11 |
+;      +--------------+-------------------------------------------+
+;      | Callee-saved | rsp, rbx, rbp, r12, r13, r14, r15         |
+;      +--------------+-------------------------------------------+
+;
+;  > São utilizados os primeiros 6 registradores para argumentos
+;  > E o registrador rax para retorno de valores em geral
+;
+; -------------------------------------------------------------------------------------------------
 
 global _start                     ; Definindo o ponto de entrada do programa
 
@@ -65,8 +78,11 @@ section .text
       mov rdi, str_result
       call print_string
 
+      mov rdi, out_buffer
+      call parse_int
+
       mov rdi, rax
-      call print_string
+      call print_int
       call print_newline
       jmp .end
 
@@ -78,7 +94,11 @@ section .text
 
     .end:                         ; Trecho responsável por finalizar o programa
 
-      mov rdi, 0                  ; Passa o resultado como exit_code
+      mov rdi, in_buffer
+      mov rsi, out_buffer
+      call string_equals
+
+      mov rdi, rax                ; Passa o resultado como exit_code
       call exit                   ; Chama a função que fará a syscall: exit
 
 ; -------------------------------------------------------------------------------------------------
@@ -88,7 +108,7 @@ section .text
     ;
     ;  read_char -> lê um único caractere do stdin
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada:
     ;     - rdi -> Endereço para armazenar o caractere lido
@@ -96,13 +116,8 @@ section .text
     ;  > Saída:
     ;     - rax -> 1 se um caractere foi lido, 0 se fim da linha
     ;
-
-    ; Guardando os valores dos registradores
-
-    push rdx
-    push rdi
-    push rsi
-    push rcx
+    ;  > Utilizados: rax, rdi, rsi, rdx e rcx
+    ;
 
     ; Executando a chamada de sistema
 
@@ -122,13 +137,6 @@ section .text
 
     .end:
 
-      ; Recuperando os valores dos registradores
-
-      pop rcx
-      pop rsi
-      pop rdi
-      pop rdx
-
       ; Retornando para o endereço salvo na STACK
 
       ret
@@ -140,7 +148,7 @@ section .text
     ;
     ;  read_word -> lê uma palavra (string) do stdin
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada:
     ;     - rdi -> Endereço do buffer de entrada
@@ -149,24 +157,27 @@ section .text
     ;  > Saída:
     ;     - rax -> 1 se sucesso, 0 se buffer cheio
     ;
+    ;  > Utilizados: rax,, rdi, rsi, rcx
+    ;
 
-    push rdi
-    push rsi
-    push rbx
+    ; Inicializa os registradores
 
-    xor rbx, rbx
+    xor rcx, rcx
 
     .iterate:
 
       push rdi
-      lea rdi, [rdi + rbx]
+      push rcx
+      lea rdi, [rdi + rcx]
       call read_char
+      pop rcx
       pop rdi
+
       test rax, rax
       jz .end_of_stream
-      cmp rbx, rsi
+      cmp rcx, rsi
       je .end_of_buffer
-      inc rbx
+      inc rcx
       jmp .iterate
 
     .end_of_stream:
@@ -183,8 +194,10 @@ section .text
       ; Continuar lendo até encontrar um '\n' para limpar o buffer de stdin
 
       push rdi
-      lea rdi, [rdi + rbx]
+      push rcx
+      lea rdi, [rdi + rcx]
       call read_char
+      pop rcx
       pop rdi
 
       test rax, rax
@@ -194,11 +207,7 @@ section .text
 
     .end:
 
-      mov byte[rdi + rbx], 0
-
-      pop rbx
-      pop rsi
-      pop rdi
+      mov byte[rdi + rcx], 0
 
       ret
 
@@ -209,7 +218,7 @@ section .text
     ;
     ;  parse_uint > converte uma string de dígitos em um inteiro sem sinal
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada:
     ;     - rdi -> Endereço da string (buffer)
@@ -217,13 +226,10 @@ section .text
     ;  > Saída:
     ;     - rax -> Valor inteiro (unsigned) resultante
     ;
+    ;  > Utilizados: rax, rsi, rdi, rdx e rcx
+    ;
 
-    ; Salvar os valores dos registradores
-
-    push rbx
-    push rcx
-
-    ; Inicializar rax e rdx
+    ; Inicializar rax, rdx e rcx
 
     xor rax, rax                  ; rax = 0 (resultado final)
     xor rdx, rdx                  ; rdx = 0 (contador de caracteres)
@@ -245,8 +251,8 @@ section .text
 
       ; Multiplicar rax por 10
 
-      mov rbx, 10                 ; rbx = 10
-      imul rax, rbx               ; rax = rax * 10
+      mov rsi, 10                 ; rdi = 10
+      imul rax, rsi               ; rax = rax * 10
 
       ; Adicionar o novo dígito
 
@@ -262,11 +268,6 @@ section .text
 
     .end:
 
-      ; Restaurar os valores dos registradores
-
-      pop rcx
-      pop rbx
-
       ; Retornar para o endereço salvo
 
       ret
@@ -278,13 +279,15 @@ section .text
     ;
     ;  parse_int -> converte uma string de dígitos em um inteiro com sinal
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada:
     ;     - rdi -> Endereço da string (buffer)
     ;
     ;  > Saída:
     ;     - rax -> Valor inteiro resultante
+    ;
+    ;  > Utilizados: rax, rdi e rcx
     ;
 
     mov cl, byte [rdi]            ; Carrega o primeiro caractere
@@ -314,18 +317,16 @@ section .text
     ;
     ;  string_length -> calcula o comprimento de uma string
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada:
     ;     - rdi -> Endereço da string (buffer)
+    ;
     ;  > Saída:
     ;     - rax -> Comprimento da string
     ;
-
-    ; Guardando os valores dos registradores
-
-    push rax
-    push rdi
+    ;  > Utilizados: rax e rdi
+    ;
 
     ; Zerando o valor do contador (rax)
 
@@ -340,11 +341,6 @@ section .text
 
     .end:
 
-      ; Recuperando os valores dos registradores
-
-      pop rdi
-      pop rax
-
       ; Retornando para o endereço na STACK
 
       ret
@@ -356,19 +352,13 @@ section .text
     ;
     ;  print_char -> imprime um único caractere no stdout
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada:
     ;     - rdi -> Endereço do caractere a ser impresso (buffer)
     ;
-
-    ; Guardando os valores dos registradores
-
-    push rax
-    push rsi
-    push rdx
-    push rcx
-    push rdi
+    ;  > Utilizados: rax, rsi, rdx, rcx e rdi
+    ;
 
     ; Executando a chamada de sistema
 
@@ -377,14 +367,6 @@ section .text
     mov rdi, 1
     mov rdx, 1
     syscall                       ; Syscall: write
-
-    ; Recuperando os valores dos registradores
-
-    pop rdi
-    pop rcx
-    pop rdx
-    pop rsi
-    pop rax
 
     ; Retornando para o endereço na STACK
 
@@ -440,12 +422,8 @@ section .text
     ;  > Entrada:
     ;     - rdi -> Endereço da string (buffer)
     ;
-
-    ; Guardando os valores dos registradores
-
-    push rax
-    push rcx
-    push rdi
+    ;  > Utilizados: rax, rcx, rdi e rsi
+    ;
 
     ; Iniciando o procedimento
 
@@ -460,18 +438,17 @@ section .text
       lea rsi, [rax + rcx]
 
       mov rdi, rsi
+
+      push rax
+      push rcx
       call print_char
+      pop rax
+      pop rcx
 
       inc rcx                     ; Caso contrário, incrementa rcx
       jmp .iterate                ; e começa a próxima iteração
 
     .end:
-
-      ; Recuperando os valores dos registradores
-
-      pop rdi
-      pop rcx
-      pop rax
 
       ; Retornando para o endereço na STACK
 
@@ -484,7 +461,7 @@ section .text
     ;
     ;  string_equals -> compara duas strings
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada:
     ;     - rdi -> Endereço da primeira string
@@ -493,18 +470,18 @@ section .text
     ;  > Saída:
     ;     - rax -> 1 se iguais, 0 se diferentes
     ;
+    ;  > Utilizados: rax, rdx e rcx
+    ;
 
-    push rcx
-    push rbx
 
     xor rcx, rcx
 
     .iterate:
 
       mov al, byte[rdi + rcx]
-      mov bl, byte[rsi + rcx]
+      mov dl, byte[rsi + rcx]
 
-      cmp al, bl                  ; Compara os caracteres
+      cmp al, dl                  ; Compara os caracteres
       jne .not_eq
 
       cmp al, 0
@@ -524,9 +501,6 @@ section .text
 
     .end:
 
-      pop rbx
-      pop rcx
-
       ret
 
 ; -------------------------------------------------------------------------------------------------
@@ -536,7 +510,7 @@ section .text
     ;
     ;  string_copy -> copia uma string para um buffer de saída
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada
     ;     - rdi -> endereço do buffer da string (source)
@@ -547,39 +521,31 @@ section .text
     ;     - rax -> se possível a alocação retorna o endereço do buffer,
     ;              caso contrário retorna o valor nulo (0)
     ;
-
-    push rbx
+    ;  > Utilizados: rax e rcx
+    ;
 
     xor rax, rax
-    xor rbx, rbx
-
+    xor rcx, rcx
 
     .loop:
 
-      mov al, byte[rdi + rbx]
-      mov byte[rsi + rbx], al
+      mov al, byte[rdi + rcx]
+      mov byte[rsi + rcx], al
 
       cmp al, 0
       je .success
 
-      inc rbx
+      inc rcx
 
-      cmp rbx, rdx
-      jge .overflow
+      cmp rcx, rdx
+      jge .end
       jmp .loop
-
-    .overflow:
-
-      xor rax, rax
-      jmp .end
 
     .success:
 
       mov rax, rsi
 
     .end:
-
-      pop rbx
 
       ret
 
@@ -590,19 +556,13 @@ section .text
     ;
     ;  print_uint -> imprime um valor decimal inteiro não sinalizado (8 bytes)
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada:
     ;     - rdi -> valor do inteiro não sinalizado de 8 bytes
     ;
-
-    ; Salva os valores dos registradores
-
-    push rax
-    push rbx
-    push rcx
-    push rdx
-    push rdi
+    ;  > Utilizados: rax, rdi, rdx, rsi e rcx
+    ;
 
     ; Guarda arg em rax (rdi)
 
@@ -615,8 +575,8 @@ section .text
 
     ; Inicializar o buffer e índice
 
-    lea rbx, [rsp + 20]           ; rbx aponta para o final do buffer
-    mov byte[rbx], 0              ; Adiciona '\0' (nulo) ao final da cadeia
+    lea rsi, [rsp + 20]           ; rsi aponta para o final do buffer
+    mov byte[rsi], 0              ; Adiciona '\0' (nulo) ao final da cadeia
 
     .convert:
 
@@ -629,9 +589,9 @@ section .text
       add dl, '0'                 ; Soma aos LSBs de rdx '0',
                                   ; ou seja, converte para char (ASCII)
 
-      dec rbx                     ; Move o ponteiro do buffer para a esquerda
+      dec rsi                     ; Move o ponteiro do buffer para a esquerda
 
-      mov byte[rbx], dl           ; Armazena o dígito no buffer
+      mov byte[rsi], dl           ; Armazena o dígito no buffer
 
       test rax, rax               ; Verifica se rax é zero
       jnz .convert
@@ -640,7 +600,7 @@ section .text
 
       ; Configurando os parâmetros da syscall write
 
-      lea rdi, [rbx]
+      lea rdi, [rsi]
       call print_string
 
       ; Desalocando o buffer da pilha (STACK)
@@ -648,14 +608,6 @@ section .text
       add rsp, 21
 
     .end:
-
-      ; Recuperando valores iniciais dos registradores
-
-      pop rdi
-      pop rdx
-      pop rcx
-      pop rbx
-      pop rax
 
       ; Retornando para o endereço na STACK
 
@@ -668,16 +620,13 @@ section .text
     ;
     ;  print_int -> imprime um valor decimal inteiro sinalizado (8 bytes)
     ;
-    ;  Registradores (callee-saved):
+    ;  Registradores:
     ;
     ;  > Entrada:
     ;     - rdi -> valor do inteiro sinalizado de 8 bytes
     ;
-
-    ; Salva os valores dos registradores
-
-    push rax
-    push rdi
+    ;  > Utilizados: rax, rdi, rsi, rdx e rcx
+    ;
 
     ; Guarda arg em rax
 
@@ -693,7 +642,10 @@ section .text
       neg rax                     ; Aplicando 2's complement
 
       mov rdi, negative_sign
+
+      push rax
       call print_char
+      pop rax
 
     .positive:
 
@@ -701,11 +653,6 @@ section .text
       call print_uint
 
     .end:
-
-      ; Recuperando valores iniciais dos registradores
-
-      pop rdi
-      pop rax
 
       ; Retornando para o endereço na STACK
 
